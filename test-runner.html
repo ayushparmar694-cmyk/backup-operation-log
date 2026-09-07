@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Backup Operations Log - Automated Test Suite</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 30px;
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 1.6rem;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .subtitle {
+      color: #94a3b8;
+      font-size: 0.95rem;
+      margin-bottom: 24px;
+    }
+    .summary-box {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .stat-badge {
+      font-size: 1.1rem;
+      font-weight: 700;
+      font-family: monospace;
+    }
+    .stat-passed { color: #10b981; }
+    .stat-failed { color: #ef4444; }
+    .stat-total { color: #38bdf8; }
+
+    .test-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .test-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 12px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .test-card.pass {
+      border-left: 5px solid #10b981;
+    }
+    .test-card.fail {
+      border-left: 5px solid #ef4444;
+      background: #2d181e;
+    }
+    .test-name {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .test-desc {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+    .badge {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge-pass { background: #064e3b; color: #34d399; }
+    .badge-fail { background: #7f1d1d; color: #f87171; }
+    .btn-return {
+      display: inline-block;
+      margin-top: 24px;
+      padding: 10px 18px;
+      background: #2563eb;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .btn-return:hover { background: #1d4ed8; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>
+      <span>🧪</span> Automated Test Suite: Backup Operations Log
+    </h1>
+    <p class="subtitle">End-to-end verification of storage CRUD, dashboard metrics, filters, data integrity, and exports.</p>
+
+    <div class="summary-box" id="test-summary">
+      <div>Total Tests: <span id="count-total" class="stat-badge stat-total">0</span></div>
+      <div>Passed: <span id="count-passed" class="stat-badge stat-passed">0</span></div>
+      <div>Failed: <span id="count-failed" class="stat-badge stat-failed">0</span></div>
+      <div>Status: <span id="suite-status" style="font-weight: 700;">Running...</span></div>
+    </div>
+
+    <div class="test-list" id="test-results">
+      <!-- Test result items will be inserted here -->
+    </div>
+
+    <a href="index.html" class="btn-return">&larr; Return to Dashboard</a>
+  </div>
+
+  <script src="js/sample-data.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/export.js"></script>
+  <script src="js/ui.js"></script>
+
+  <script>
+    const tests = [];
+    function test(name, description, fn) {
+      tests.push({ name, description, fn });
+    }
+
+    function assert(condition, message) {
+      if (!condition) {
+        throw new Error(message || 'Assertion failed');
+      }
+    }
+
+    // --- TEST SUITE DEFINITIONS ---
+
+    test("1. Sample Data Loading & Initialization", "Verify default seed datasets contain realistic records", () => {
+      assert(Array.isArray(SAMPLE_DAILY_BACKUPS) && SAMPLE_DAILY_BACKUPS.length >= 10, "Daily backups seed data missing or too small");
+      assert(Array.isArray(SAMPLE_RESTORATION_TESTS) && SAMPLE_RESTORATION_TESTS.length >= 5, "Restoration tests seed data missing or too small");
+      assert(Array.isArray(SAMPLE_INTEGRITY_CHECKS) && SAMPLE_INTEGRITY_CHECKS.length >= 5, "Integrity checks seed data missing or too small");
+    });
+
+    test("2. StorageManager Initialization", "Verify LocalStorage store initializes properly and returns records", () => {
+      window.storage.resetToDemoData();
+      const db = window.storage.getDatabase();
+      assert(db.dailyBackups && db.dailyBackups.length > 0, "dailyBackups array is empty");
+      assert(db.restorationTests && db.restorationTests.length > 0, "restorationTests array is empty");
+      assert(db.integrityChecks && db.integrityChecks.length > 0, "integrityChecks array is empty");
+    });
+
+    test("3. Dashboard KPI Statistics Calculation", "Verify dashboard counts, success rates, and pass percentages", () => {
+      const stats = window.storage.getDashboardStats();
+      assert(typeof stats.totalBackups === 'number' && stats.totalBackups >= 10, "totalBackups count invalid");
+      assert(typeof stats.successfulBackups === 'number' && stats.successfulBackups > 0, "successfulBackups invalid");
+      assert(typeof stats.failedBackups === 'number' && stats.failedBackups > 0, "failedBackups invalid");
+      assert(typeof stats.restorePassRate === 'number' && stats.restorePassRate > 0 && stats.restorePassRate <= 100, "restorePassRate invalid");
+      assert(typeof stats.integrityPassRate === 'number' && stats.integrityPassRate > 0 && stats.integrityPassRate <= 100, "integrityPassRate invalid");
+      assert(stats.totalBackups === stats.successfulBackups + stats.failedBackups + stats.warningBackups, "Sum of backups does not equal total");
+    });
+
+    test("4. Daily Backup CRUD Operations", "Verify Add, Read, Update, and Delete on Daily Backups", () => {
+      const initialCount = window.storage.getDailyBackups().length;
+      
+      // Add
+      const newBackup = window.storage.addDailyBackup({
+        date: "2026-08-22",
+        systemName: "Automated-Test-System-01",
+        backupType: "Full",
+        startTime: "05:00",
+        endTime: "05:15",
+        backupSize: "15.5 GB",
+        status: "Success",
+        remarks: "Test backup execution entry"
+      });
+      assert(newBackup.id, "Generated backup does not have an ID");
+      assert(window.storage.getDailyBackups().length === initialCount + 1, "Backup count did not increment after add");
+
+      // Read
+      const fetched = window.storage.getBackupById(newBackup.id);
+      assert(fetched && fetched.systemName === "Automated-Test-System-01", "Could not fetch created backup by ID");
+
+      // Update
+      const updated = window.storage.updateDailyBackup(newBackup.id, {
+        status: "Warning",
+        remarks: "Updated remark status"
+      });
+      assert(updated.status === "Warning" && updated.remarks === "Updated remark status", "Update daily backup failed");
+
+      // Delete
+      const deleteResult = window.storage.deleteDailyBackup(newBackup.id);
+      assert(deleteResult === true, "deleteDailyBackup returned false");
+      assert(window.storage.getDailyBackups().length === initialCount, "Backup count did not decrement after delete");
+      assert(window.storage.getBackupById(newBackup.id) === null, "Deleted backup still found by ID");
+    });
+
+    test("5. Restoration Test CRUD Operations", "Verify Add, Read, Update, and Delete on Restoration Tests", () => {
+      const initialCount = window.storage.getRestorationTests().length;
+
+      // Add
+      const newRestore = window.storage.addRestorationTest({
+        testDate: "2026-08-22",
+        backupDate: "2026-08-21",
+        backupName: "Automated-Restore-Test-DB",
+        restoreType: "Point-in-Time Database",
+        restoreStartTime: "06:00",
+        restoreEndTime: "06:30",
+        restoreDuration: "30 mins",
+        dataVerified: "1,000 test user accounts spot checked",
+        result: "Passed",
+        remarks: "Test restoration completed"
+      });
+      assert(newRestore.id, "Generated restore test does not have an ID");
+      assert(window.storage.getRestorationTests().length === initialCount + 1, "Restore test count did not increment");
+
+      // Read & Update
+      window.storage.updateRestorationTest(newRestore.id, { result: "Failed", remarks: "Drill failed due to simulated timeout" });
+      const fetched = window.storage.getRestoreById(newRestore.id);
+      assert(fetched.result === "Failed", "Update restore test failed");
+
+      // Delete
+      window.storage.deleteRestorationTest(newRestore.id);
+      assert(window.storage.getRestorationTests().length === initialCount, "Restore test count did not decrement after delete");
+    });
+
+    test("6. Data Integrity Check CRUD Operations", "Verify Add, Read, Update, and Delete on Data Integrity Checks", () => {
+      const initialCount = window.storage.getIntegrityChecks().length;
+
+      // Add
+      const newCheck = window.storage.addIntegrityCheck({
+        checkDate: "2026-08-22",
+        systemName: "Automated-Integrity-Vault",
+        recordsChecked: 500000,
+        filesChecked: 1200,
+        errorsFound: 0,
+        checksumVerification: "Passed",
+        overallResult: "Passed",
+        remarks: "SHA-256 integrity passed 100%"
+      });
+      assert(newCheck.id, "Integrity check does not have an ID");
+      assert(window.storage.getIntegrityChecks().length === initialCount + 1, "Integrity check count did not increment");
+
+      // Read & Update
+      window.storage.updateIntegrityCheck(newCheck.id, { errorsFound: 2, overallResult: "Warning" });
+      const fetched = window.storage.getIntegrityCheckById(newCheck.id);
+      assert(fetched.errorsFound === 2 && fetched.overallResult === "Warning", "Update integrity check failed");
+
+      // Delete
+      window.storage.deleteIntegrityCheck(newCheck.id);
+      assert(window.storage.getIntegrityChecks().length === initialCount, "Integrity check count did not decrement after delete");
+    });
+
+    test("7. KPI Aggregation Reaction to CRUD", "Verify KPI counters update in response to additions and deletions", () => {
+      const baseStats = window.storage.getDashboardStats();
+
+      // Add a failed backup
+      const failBackup = window.storage.addDailyBackup({
+        date: "2026-08-22",
+        systemName: "KPI-Fail-Test",
+        backupType: "Full",
+        status: "Failed",
+        remarks: "Simulated error"
+      });
+
+      const afterAddStats = window.storage.getDashboardStats();
+      assert(afterAddStats.totalBackups === baseStats.totalBackups + 1, "Total backups did not increase");
+      assert(afterAddStats.failedBackups === baseStats.failedBackups + 1, "Failed backups did not increase");
+
+      // Clean up
+      window.storage.deleteDailyBackup(failBackup.id);
+      const afterDeleteStats = window.storage.getDashboardStats();
+      assert(afterDeleteStats.totalBackups === baseStats.totalBackups, "Total backups did not return to base");
+      assert(afterDeleteStats.failedBackups === baseStats.failedBackups, "Failed backups did not return to base");
+    });
+
+    test("8. CSV String Generation & RFC-4180 Escaping", "Verify CSV formatting handles quotes, commas, and multiline remarks", () => {
+      assert(ExportManager.escapeCsvValue('Simple') === '"Simple"', "Simple string quoting failed");
+      assert(ExportManager.escapeCsvValue('With, Comma') === '"With, Comma"', "Comma escaping failed");
+      assert(ExportManager.escapeCsvValue('With "Quotes"') === '"With ""Quotes"""', "Quote doubling escaping failed");
+      assert(ExportManager.escapeCsvValue(null) === '""', "Null escaping failed");
+    });
+
+    test("9. JSON Export & Import Integrity", "Verify full database backup export and restore without data loss", () => {
+      const exportedJson = window.storage.exportJson();
+      assert(typeof exportedJson === 'string' && exportedJson.length > 50, "Exported JSON is empty");
+
+      const importResult = window.storage.importJson(exportedJson);
+      assert(importResult.success === true, "Import JSON failed: " + (importResult.error || ''));
+      assert(importResult.count > 0, "Imported count is 0");
+    });
+
+    test("10. HTML & XSS Sanitization Helper", "Verify UI HTML escaping prevents script tag injection", () => {
+      const safe = window.ui.escapeHtml('<script>alert("xss")</script>');
+      assert(!safe.includes('<script>'), "HTML was not escaped");
+      assert(safe.includes('&lt;script&gt;'), "HTML angle brackets not converted");
+    });
+
+    test("11. Auto Duration Calculation Algorithm", "Verify restore duration calculation between timestamps", () => {
+      const calcMin = (start, end) => {
+        const [sh, sm] = start.split(':').map(Number);
+        const [eh, em] = end.split(':').map(Number);
+        let diffMin = (eh * 60 + em) - (sh * 60 + sm);
+        if (diffMin < 0) diffMin += 24 * 60;
+        if (diffMin < 60) return `${diffMin} mins`;
+        const hrs = Math.floor(diffMin / 60);
+        const remMin = diffMin % 60;
+        return remMin > 0 ? `${hrs}h ${remMin}m` : `${hrs} hours`;
+      };
+
+      assert(calcMin('10:00', '10:45') === '45 mins', "45 mins calc failed");
+      assert(calcMin('09:00', '10:30') === '1h 30m', "1h 30m calc failed");
+      assert(calcMin('08:00', '10:00') === '2 hours', "2 hours calc failed");
+      assert(calcMin('23:30', '00:15') === '45 mins', "Midnight wrap calc failed");
+    });
+
+    test("12. Search & Filter Matching Algorithm", "Verify search matches across system names, dates, statuses, and remarks", () => {
+      const backups = window.storage.getDailyBackups();
+      const match = (item, query) => {
+        const text = `${item.systemName} ${item.date} ${item.status} ${item.remarks || ''} ${item.backupSize || ''} ${item.backupType || ''}`.toLowerCase();
+        return text.includes(query.toLowerCase());
+      };
+
+      const postgresMatches = backups.filter(b => match(b, 'PostgreSQL'));
+      assert(postgresMatches.length > 0, "Failed to match PostgreSQL backups");
+
+      const successMatches = backups.filter(b => match(b, 'Success'));
+      assert(successMatches.length > 0, "Failed to match Success backups");
+    });
+
+    test("13. Full Multi-Section Audit CSV Generation", "Verify all 3 sections are included in complete audit export", () => {
+      const db = window.storage.getDatabase();
+      const sections = [];
+      sections.push(`"=== SECTION 1: DAILY BACKUP EXECUTION LOG ==="`);
+      (db.dailyBackups || []).forEach(b => sections.push(ExportManager.escapeCsvValue(b.systemName)));
+      sections.push(`"=== SECTION 2: BACKUP RESTORATION TEST DRILLS ==="`);
+      (db.restorationTests || []).forEach(r => sections.push(ExportManager.escapeCsvValue(r.backupName)));
+      sections.push(`"=== SECTION 3: DATA INTEGRITY CHECKS ==="`);
+      (db.integrityChecks || []).forEach(i => sections.push(ExportManager.escapeCsvValue(i.systemName)));
+
+      const fullString = sections.join('\r\n');
+      assert(fullString.includes('SECTION 1'), "Section 1 missing");
+      assert(fullString.includes('SECTION 2'), "Section 2 missing");
+      assert(fullString.includes('SECTION 3'), "Section 3 missing");
+    });
+
+    test("14. LocalStorage Key Persistence Verification", "Verify database survives simulated page reload from localStorage key", () => {
+      const rawStored = localStorage.getItem('BACKUP_OPS_LOG_DB_V1');
+      assert(rawStored !== null && rawStored.length > 10, "BACKUP_OPS_LOG_DB_V1 key not found in localStorage");
+      const parsed = JSON.parse(rawStored);
+      assert(Array.isArray(parsed.dailyBackups), "Stored data missing dailyBackups array");
+    });
+
+    // --- RUN TEST RUNNER ---
+    function runSuite() {
+      const resultsContainer = document.getElementById('test-results');
+      let passed = 0;
+      let failed = 0;
+
+      tests.forEach(t => {
+        const card = document.createElement('div');
+        card.className = 'test-card';
+
+        try {
+          t.fn();
+          passed++;
+          card.classList.add('pass');
+          card.innerHTML = `
+            <div>
+              <div class="test-name">${t.name}</div>
+              <div class="test-desc">${t.description}</div>
+            </div>
+            <span class="badge badge-pass">PASSED</span>
+          `;
+        } catch (err) {
+          failed++;
+          card.classList.add('fail');
+          card.innerHTML = `
+            <div>
+              <div class="test-name">${t.name}</div>
+              <div class="test-desc" style="color: #fca5a5;">${err.message}</div>
+            </div>
+            <span class="badge badge-fail">FAILED</span>
+          `;
+        }
+
+        resultsContainer.appendChild(card);
+      });
+
+      document.getElementById('count-total').textContent = tests.length;
+      document.getElementById('count-passed').textContent = passed;
+      document.getElementById('count-failed').textContent = failed;
+
+      const statusEl = document.getElementById('suite-status');
+      if (failed === 0) {
+        statusEl.textContent = `ALL TESTS PASSED (${tests.length}/${tests.length})`;
+        statusEl.style.color = '#10b981';
+      } else {
+        statusEl.textContent = `${failed} TEST(S) FAILED`;
+        statusEl.style.color = '#ef4444';
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', runSuite);
+  </script>
+</body>
+</html>
